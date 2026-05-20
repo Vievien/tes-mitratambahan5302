@@ -1,0 +1,6 @@
+services:
+  - type: web
+    name: tesmitra5302
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
