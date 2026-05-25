@@ -7,14 +7,14 @@ app.secret_key = "bps5302"
 # ====================================
 # LINK APPS SCRIPT
 # ====================================
-LINK_UJIAN = "https://script.google.com/macros/s/AKfycbwbiHGi10Sg6ioVTUPgF1BV1xo0XR9Lv7iFV2e1LaJObfgq3SB857DdPzt8mTGHkqBv6A/exec"
+LINK_UJIAN = "https://script.google.com/macros/s/AKfycbw4yWo60XU7SBJboTWLuFbrNGBGowq42xsW2M8azQWxxDRSGQhKIkQMJd5oOKmwL3LOEA/exec"
 
 # ====================================
 # DATABASE USER SEDERHANA
 # ====================================
 users = {
 
-    "mitra5302": "12345"
+    "calonmit5302": "qwerty"
 
 }
 
