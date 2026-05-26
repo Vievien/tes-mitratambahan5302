@@ -19,6 +19,17 @@ users = {
 }
 
 # ====================================
+# LOADING PAGE
+# ====================================
+@app.route("/loading")
+def loading():
+
+    if "username" not in session:
+        return redirect("/")
+
+    return render_template("loading.html")
+
+# ====================================
 # LOGIN
 # ====================================
 @app.route("/", methods=["GET","POST"])
@@ -33,7 +44,7 @@ def login():
 
             session["username"] = username
 
-            return redirect("/ujian")
+            return redirect("/loading")
 
         return render_template(
             "login.html",
