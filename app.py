@@ -14,7 +14,7 @@ LINK_UJIAN = "https://script.google.com/macros/s/AKfycbw4yWo60XU7SBJboTWLuFbrNGB
 # ====================================
 users = {
 
-    "calonmit5302": "qwerty"
+    "calonmit5302": "dfghj"
 
 }
 
