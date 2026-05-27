@@ -14,7 +14,7 @@ LINK_UJIAN = "https://script.google.com/macros/s/AKfycbwRGTb892O_eRr1dj-dogtaE__
 # ====================================
 users = {
 
-    "seleksi27mei": "akhir5302"
+    "mitra5302": "tutup5302!?!@#$"
 
 }
 
