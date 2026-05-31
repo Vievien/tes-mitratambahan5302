@@ -50,8 +50,11 @@ button:disabled{background:gray}
 let submitted = false;
 let time = 3600;
 
-// TIMER
+// ================= TIMER STABLE =================
 setInterval(() => {
+
+    if(submitted) return;
+
     let m = Math.floor(time / 60);
     let s = time % 60;
 
@@ -59,29 +62,54 @@ setInterval(() => {
         String(m).padStart(2,"0")+":"+String(s).padStart(2,"0");
 
     if(time <= 0){
-        submitUjian();
+        autoSubmit();
         return;
     }
+
     time--;
+
 }, 1000);
 
-// FULLSCREEN
+// ================= AUTO FULLSCREEN =================
 document.addEventListener("click", () => {
     document.documentElement.requestFullscreen?.();
 }, {once:true});
 
-// SUBMIT
+// ================= ANTI CHEAT =================
+let warning = 0;
+let maxWarning = 3;
+
+document.addEventListener("visibilitychange", function () {
+    if (document.hidden) cheat("Pindah tab / minimize");
+});
+
+window.addEventListener("blur", function () {
+    cheat("Window tidak aktif");
+});
+
+function cheat(msg){
+
+    if(submitted) return;
+
+    warning++;
+
+    alert(msg + " (" + warning + "/" + maxWarning + ")");
+
+    if(warning >= maxWarning){
+        autoSubmit();
+    }
+}
+
+// ================= VALIDASI + SUBMIT =================
 function submitUjian(){
 
     if(submitted) return;
+
     let unanswered = 0;
 
     {% for q in questions %}
     let opt{{ q['No'] }} = document.querySelector('input[name="q{{ q["No"] }}"]:checked');
-
-    if(!opt{{ q['No'] }}){
-        unanswered++;
-    }
+    if(!opt{{ q['No'] }}) unanswered++;
     {% endfor %}
 
     if(unanswered > 0){
@@ -89,6 +117,19 @@ function submitUjian(){
         return;
     }
 
+    sendSubmit();
+}
+
+// ================= AUTO SUBMIT =================
+function autoSubmit(){
+    if(submitted) return;
+    sendSubmit();
+}
+
+// ================= SEND TO SERVER (FIX UTAMA) =================
+function sendSubmit(){
+
+    if(submitted) return;
     submitted = true;
 
     document.getElementById("btn").disabled = true;
@@ -123,41 +164,6 @@ function submitUjian(){
         }
     });
 
-}
-
-let warning = 0;
-let maxWarning = 3;
-
-document.addEventListener("visibilitychange", function () {
-    if (document.hidden) {
-        cheat("Pindah tab / minimize");
-    }
-});
-
-window.addEventListener("blur", function () {
-    cheat("Window tidak aktif");
-});
-
-function cheat(msg){
-
-    if(submitted) return;
-
-    warning++;
-
-    alert(msg + " (" + warning + "/" + maxWarning + ")");
-
-    if(warning >= maxWarning){
-        autoSubmit();
-    }
-}
-
-function autoSubmit(){
-    if(submitted) return;
-    submitted = true;
-
-    document.getElementById("btn").disabled = true;
-
-    submitUjian();
 }
 
 </script>
