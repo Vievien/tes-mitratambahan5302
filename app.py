@@ -1,5 +1,5 @@
 from flask import Flask, render_template, request, redirect, session, jsonify
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 import os, json, random, hashlib
 import gspread
 from google.oauth2.service_account import Credentials
@@ -12,6 +12,7 @@ app.secret_key = "tesmit5302!"
 # =========================
 KKM = 60
 MAX_ATTEMPT_GAGAL = 2
+WITA = timezone(timedelta(hours=8))
 
 # =========================
 # GOOGLE SHEETS
@@ -81,7 +82,7 @@ def cari_peserta(username, password):
 
 
 def generate_token(email, ua):
-    raw = email + ua + str(datetime.now())
+    raw = email + ua + str(datetime.now(WITA))
     return hashlib.sha256(raw.encode()).hexdigest()
 
 
@@ -224,7 +225,7 @@ def submit():
             benar += 1
 
         rows.append([
-            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            datetime.now(WITA).strftime("%Y-%m-%d %H:%M:%S"),
             session["nama"],
             email,
             q["Soal"],
