@@ -47,13 +47,11 @@ button:disabled{background:gray}
 
 <script>
 
-let token = "{{ token }}";
 let submitted = false;
 let time = 3600;
 
-// ================= TIMER =================
+// TIMER
 setInterval(() => {
-
     let m = Math.floor(time / 60);
     let s = time % 60;
 
@@ -64,17 +62,69 @@ setInterval(() => {
         submitUjian();
         return;
     }
-
     time--;
-
 }, 1000);
 
-// ================= FULLSCREEN AUTO =================
+// FULLSCREEN
 document.addEventListener("click", () => {
     document.documentElement.requestFullscreen?.();
 }, {once:true});
 
-// ================= BLUR / TAB SWITCH DETECTION =================
+// SUBMIT
+function submitUjian(){
+
+    if(submitted) return;
+    let unanswered = 0;
+
+    {% for q in questions %}
+    let opt{{ q['No'] }} = document.querySelector('input[name="q{{ q["No"] }}"]:checked');
+
+    if(!opt{{ q['No'] }}){
+        unanswered++;
+    }
+    {% endfor %}
+
+    if(unanswered > 0){
+        alert("Masih ada " + unanswered + " soal yang belum dijawab!");
+        return;
+    }
+
+    submitted = true;
+
+    document.getElementById("btn").disabled = true;
+
+    let answers = [];
+
+    {% for q in questions %}
+    let opt{{ q['No'] }} = document.querySelector('input[name="q{{ q["No"] }}"]:checked');
+
+    answers.push({
+        no:"{{ q['No'] }}",
+        jawaban: opt{{ q['No'] }} ? opt{{ q['No'] }}.value : ""
+    });
+    {% endfor %}
+
+    fetch("/submit",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({answers})
+    })
+    .then(r=>r.json())
+    .then(d=>{
+        if(d.success){
+            document.body.innerHTML =
+            "<h1 style='text-align:center;margin-top:100px'>Nilai: "+d.nilai+"</h1>"+
+            "<h2 style='text-align:center'>"+(d.lulus?"LULUS":"TIDAK LULUS")+"</h2>"+
+            "<p style='text-align:center'>Attempt: "+d.attempt+"</p>";
+        } else {
+            alert(d.message);
+            submitted = false;
+            document.getElementById("btn").disabled = false;
+        }
+    });
+
+}
+
 let warning = 0;
 let maxWarning = 3;
 
@@ -108,63 +158,6 @@ function autoSubmit(){
     document.getElementById("btn").disabled = true;
 
     submitUjian();
-}
-
-// ================= SUBMIT =================
-function submitUjian(){
-
-    if(submitted) return;
-
-    // ================= VALIDASI WAJIB JAWAB =================
-    let unanswered = 0;
-
-    {% for q in questions %}
-    let opt{{ q['No'] }} = document.querySelector('input[name="q{{ q["No"] }}"]:checked');
-
-    if(!opt{{ q['No'] }}){
-        unanswered++;
-    }
-    {% endfor %}
-
-    if(unanswered > 0){
-        alert("Masih ada " + unanswered + " soal yang belum dijawab!");
-        return;
-    }
-
-    // ================= LOCK SUBMIT =================
-    submitted = true;
-    document.getElementById("btn").disabled = true;
-
-    let answers = [];
-
-    {% for q in questions %}
-    let opt{{ q['No'] }} = document.querySelector('input[name="q{{ q["No"] }}"]:checked');
-
-    answers.push({
-        no:"{{ q['No'] }}",
-        jawaban: opt{{ q['No'] }} ? opt{{ q['No'] }}.value : ""
-    });
-    {% endfor %}
-
-    fetch("/submit",{
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({answers})
-    })
-    .then(r=>r.json())
-    .then(d=>{
-        if(d.success){
-            document.body.innerHTML =
-            "<h1 style='text-align:center;margin-top:100px'>Nilai: "+d.nilai+"</h1>"+
-            "<h2 style='text-align:center'>"+(d.lulus?"LULUS":"TIDAK LULUS")+"</h2>"+
-            "<p style='text-align:center'>Attempt: "+d.attempt+" / KKM: "+d.kkm+"</p>";
-        } else {
-            alert(d.message);
-            submitted = false;
-            document.getElementById("btn").disabled = false;
-        }
-    });
-
 }
 
 </script>
