@@ -5,7 +5,7 @@ import gspread
 from google.oauth2.service_account import Credentials
 
 app = Flask(__name__)
-app.secret_key = "CBT_PRO_MAX_2026"
+app.secret_key = "tesmit5302!"
 
 # =========================
 # CONFIG
