@@ -1,46 +1,23 @@
-from flask import (
-    Flask,
-    render_template,
-    request,
-    redirect,
-    session,
-    jsonify
-)
-
+from flask import Flask, render_template, request, redirect, session, jsonify
 from datetime import datetime
-
-import os
-import json
-import random
-
+import os, json, random, hashlib
 import gspread
-
 from google.oauth2.service_account import Credentials
 
-
 app = Flask(__name__)
+app.secret_key = "CBT_PRO_MAX_2026"
 
-app.secret_key = "SE2026_MITRA_TAMBAHAN"
-
-
-# =====================================
+# =========================
 # GOOGLE SHEETS
-# =====================================
-
+# =========================
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
     "https://www.googleapis.com/auth/drive"
 ]
 
-google_creds = json.loads(
-    os.environ["GOOGLE_CREDENTIALS"]
-)
+creds_json = json.loads(os.environ["GOOGLE_CREDENTIALS"])
 
-creds = Credentials.from_service_account_info(
-    google_creds,
-    scopes=SCOPES
-)
-
+creds = Credentials.from_service_account_info(creds_json, scopes=SCOPES)
 gc = gspread.authorize(creds)
 
 spreadsheet = gc.open_by_key("1UaKV5QPMtk_YW_5aRWzoyy5s2w8Xq0Hf43L5iw88Dd0")
@@ -49,325 +26,206 @@ sheet_peserta = spreadsheet.worksheet("Peserta")
 sheet_soal = spreadsheet.worksheet("Soal")
 sheet_jawaban = spreadsheet.worksheet("Jawaban")
 
-def get_peserta():
+# =========================
+# CBT PRO MAX MEMORY
+# =========================
+active_tokens = {}
+submitted_keys = set()
+last_seen = {}
 
-    return sheet_peserta.get_all_records()
-
-
+# =========================
+# HELPERS
+# =========================
 def cari_peserta(username, password):
-
-    peserta = get_peserta()
-
-    for p in peserta:
-
+    data = sheet_peserta.get_all_records()
+    for p in data:
         if (
-            str(p["Username"]).strip().lower()
-            ==
-            username.strip().lower()
-        ) and (
-            str(p["Password"]).strip()
-            ==
-            password.strip()
+            str(p["Username"]).strip().lower() == username.strip().lower()
+            and str(p["Password"]).strip() == password.strip()
         ):
-
             return p
-
     return None
 
-def cek_kesempatan_ujian(email):
 
-    data = sheet_jawaban.get_all_records()
+def generate_token(email, ua):
+    raw = email + ua + str(datetime.now())
+    return hashlib.sha256(raw.encode()).hexdigest()
 
-    email = email.strip().lower()
-
-    peserta_rows = []
-
-    for row in data:
-
-        if (
-            str(row["Email"])
-            .strip()
-            .lower()
-            ==
-            email
-        ):
-            peserta_rows.append(row)
-
-    if len(peserta_rows) == 0:
-
-        return {
-            "boleh": True,
-            "sisa": 2
-        }
-
-    grouped = {}
-
-    for row in peserta_rows:
-
-        timestamp = str(
-            row["Timestamp"]
-        )
-
-        if timestamp not in grouped:
-            grouped[timestamp] = []
-
-        grouped[timestamp].append(row)
-
-    attempts = list(grouped.keys())
-
-    total_submit = len(attempts)
-
-    latest_time = sorted(
-        attempts,
-        reverse=True
-    )[0]
-
-    latest_data = grouped[latest_time]
-
-    benar = 0
-
-    for row in latest_data:
-
-        if row["Status"] == "Benar":
-            benar += 1
-
-    nilai = round(
-        (benar / 30) * 100
-    )
-
-    if nilai >= 60:
-
-        return {
-            "boleh": False,
-            "pesan":
-            "Anda sudah lulus ujian dan tidak dapat mengikuti ujian kembali."
-        }
-
-    if nilai < 60 and total_submit >= 2:
-
-        return {
-            "boleh": False,
-            "pesan":
-            "Kesempatan ujian ulang Anda telah habis."
-        }
-
-    return {
-        "boleh": True,
-        "sisa": 2 - total_submit
-    }
 
 def get_random_questions():
-
     data = sheet_soal.get_all_records()
-
     seen = set()
-
     unique = []
 
-    for row in data:
-
-        soal = (
-            str(row["Soal"])
-            .strip()
-            .lower()
-        )
-
+    for r in data:
+        soal = str(r["Soal"]).strip().lower()
         if soal in seen:
             continue
-
         seen.add(soal)
-
-        unique.append(row)
+        unique.append(r)
 
     random.shuffle(unique)
+    return unique[:30]
 
-    selected = unique[:30]
 
-    return selected
-
+# =========================
+# LOGIN
+# =========================
 @app.route("/", methods=["GET", "POST"])
 def login():
 
     if request.method == "POST":
 
         username = request.form["username"]
-
         password = request.form["password"]
 
-        peserta = cari_peserta(
-            username,
-            password
-        )
+        peserta = cari_peserta(username, password)
 
         if not peserta:
+            return render_template("login.html", error="Login gagal")
 
-            return render_template(
-                "login.html",
-                error="Username atau password salah"
-            )
+        if str(peserta["Status"]).upper() != "AKTIF":
+            return render_template("login.html", error="Tidak aktif")
 
-        status = str(
-            peserta["Status"]
-        ).strip().upper()
-
-        if status != "AKTIF":
-
-            return render_template(
-                "login.html",
-                error="Status peserta tidak aktif"
-            )
-
-        cek = cek_kesempatan_ujian(
-            peserta["Email"]
-        )
-
-        if not cek["boleh"]:
-
-            return render_template(
-                "login.html",
-                error=cek["pesan"]
-            )
+        ua = request.headers.get("User-Agent", "")
+        token = generate_token(peserta["Email"], ua)
 
         session["nama"] = peserta["Nama"]
-
         session["email"] = peserta["Email"]
+        session["token"] = token
+
+        active_tokens[token] = True
 
         return redirect("/ujian")
 
     return render_template("login.html")
 
+
+# =========================
+# UJIAN
+# =========================
 @app.route("/ujian")
 def ujian():
 
-    if "nama" not in session:
+    if "token" not in session:
+        return redirect("/")
+
+    token = session["token"]
+
+    if token not in active_tokens:
         return redirect("/")
 
     questions = get_random_questions()
-
     session["questions"] = questions
 
     return render_template(
         "ujian.html",
         nama=session["nama"],
         email=session["email"],
+        token=token,
         questions=questions
     )
 
+
+# =========================
+# HEARTBEAT
+# =========================
+@app.route("/heartbeat", methods=["POST"])
+def heartbeat():
+
+    if "token" not in session:
+        return jsonify({"success": False})
+
+    last_seen[session["token"]] = datetime.now()
+
+    return jsonify({"success": True})
+
+
+# =========================
+# SUBMIT (ANTI DUPLICATE GLOBAL)
+# =========================
 @app.route("/submit", methods=["POST"])
 def submit():
 
-    if "nama" not in session:
-        return jsonify({
-            "success": False
-        })
+    if "token" not in session:
+        return jsonify({"success": False})
 
-    nama = session["nama"]
     email = session["email"]
+    token = session["token"]
+
+    key = email + "_" + token
+
+    if key in submitted_keys:
+        return jsonify({"success": False, "message": "Sudah submit"})
+
+    submitted_keys.add(key)
 
     questions = session.get("questions", [])
+    answers = request.json.get("answers", [])
 
-    if not questions:
-
-        return jsonify({
-            "success": False,
-            "message": "Data soal tidak ditemukan"
-        })
-
-    answers = request.json.get(
-        "answers",
-        []
-    )
-
-    timestamp = datetime.now().strftime(
-        "%Y-%m-%d %H:%M:%S"
-    )
-
-    soal_map = {}
-
-    for q in questions:
-
-        soal_map[str(q["No"])] = q
+    soal_map = {str(q["No"]): q for q in questions}
 
     rows = []
-
     benar = 0
 
-    for item in answers:
+    for a in answers:
 
-        no = str(item["no"])
-
-        jawaban_peserta = item["jawaban"]
+        no = str(a["no"])
+        jawaban = a["jawaban"]
 
         if no not in soal_map:
             continue
 
         q = soal_map[no]
 
-        jawaban_benar = str(
-            q["Jawaban"]
-        ).strip()
-
-        status = (
-            "Benar"
-            if jawaban_peserta == jawaban_benar
-            else "Salah"
-        )
+        status = "Benar" if jawaban == q["Jawaban"] else "Salah"
 
         if status == "Benar":
             benar += 1
 
         rows.append([
-
-            timestamp,
-
-            nama,
-
+            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            session["nama"],
             email,
-
             q["Soal"],
-
-            jawaban_peserta,
-
-            jawaban_benar,
-
+            jawaban,
+            q["Jawaban"],
             status
-
         ])
 
-    if rows:
+    sheet_jawaban.append_rows(rows)
 
-        sheet_jawaban.append_rows(rows)
-
-    nilai = round(
-        (benar / 30) * 100
-    )
-
+    nilai = round((benar / 30) * 100)
     lulus = nilai >= 60
 
     session.clear()
+    active_tokens.pop(token, None)
 
     return jsonify({
-
         "success": True,
-
         "nilai": nilai,
-
         "lulus": lulus
-
     })
 
 
-@app.route("/logout")
-def logout():
+# =========================
+# FORCE LOGOUT
+# =========================
+@app.route("/force_logout", methods=["POST"])
+def force_logout():
+
+    token = session.get("token")
+
+    if token:
+        active_tokens.pop(token, None)
 
     session.clear()
 
-    return redirect("/")
+    return jsonify({"success": True})
 
+
+# =========================
+# RUN
+# =========================
 if __name__ == "__main__":
-    app.run(
-        host="0.0.0.0",
-        port=5000,
-        debug=True
-    )
-
+    app.run(host="0.0.0.0", port=5000, debug=True)
