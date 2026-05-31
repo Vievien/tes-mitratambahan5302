@@ -9,6 +9,8 @@ from flask import (
 
 from datetime import datetime
 
+import os
+import json
 import random
 
 import gspread
@@ -30,8 +32,12 @@ SCOPES = [
     "https://www.googleapis.com/auth/drive"
 ]
 
-creds = Credentials.from_service_account_file(
-    "credentials.json",
+google_creds = json.loads(
+    os.environ["GOOGLE_CREDENTIALS"]
+)
+
+creds = Credentials.from_service_account_info(
+    google_creds,
     scopes=SCOPES
 )
 
