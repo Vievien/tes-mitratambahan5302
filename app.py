@@ -5,8 +5,11 @@ import gspread
 from google.oauth2.service_account import Credentials
 
 app = Flask(__name__)
-app.secret_key = "bps5302!"
+app.secret_key = "CBT_PRO_MAX_2026"
 
+# =========================
+# CONFIG
+# =========================
 KKM = 60
 MAX_ATTEMPT_GAGAL = 2
 
@@ -19,7 +22,6 @@ SCOPES = [
 ]
 
 creds_json = json.loads(os.environ["GOOGLE_CREDENTIALS"])
-
 creds = Credentials.from_service_account_info(creds_json, scopes=SCOPES)
 gc = gspread.authorize(creds)
 
@@ -30,18 +32,16 @@ sheet_soal = spreadsheet.worksheet("Soal")
 sheet_jawaban = spreadsheet.worksheet("Jawaban")
 
 # =========================
-# CBT PRO MAX MEMORY
+# MEMORY CONTROL
 # =========================
 active_tokens = {}
-submitted_keys = set()
 last_seen = {}
 
 user_status = {}
-# format:
-# email = {
-#   "attempt": 0,
-#   "passed": False
-# }
+# email:
+# { "attempt": 0, "passed": False }
+
+submitted_once_session = set()
 
 # =========================
 # HELPERS
@@ -64,6 +64,7 @@ def generate_token(email, ua):
 
 def get_random_questions():
     data = sheet_soal.get_all_records()
+
     seen = set()
     unique = []
 
@@ -76,7 +77,6 @@ def get_random_questions():
 
     random.shuffle(unique)
     return unique[:30]
-
 
 # =========================
 # LOGIN
@@ -95,13 +95,25 @@ def login():
             return render_template("login.html", error="Login gagal")
 
         if str(peserta["Status"]).upper() != "AKTIF":
-            return render_template("login.html", error="Tidak aktif")
+            return render_template("login.html", error="Akun tidak aktif")
+
+        email = peserta["Email"]
+
+        status = user_status.get(email, {"attempt": 0, "passed": False})
+
+        # ❌ sudah lulus
+        if status["passed"]:
+            return render_template("login.html", error="Anda sudah lulus dan tidak bisa mengulang ujian")
+
+        # ❌ sudah 2x gagal
+        if status["attempt"] >= MAX_ATTEMPT_GAGAL:
+            return render_template("login.html", error="Kesempatan ujian sudah habis")
 
         ua = request.headers.get("User-Agent", "")
-        token = generate_token(peserta["Email"], ua)
+        token = generate_token(email, ua)
 
         session["nama"] = peserta["Nama"]
-        session["email"] = peserta["Email"]
+        session["email"] = email
         session["token"] = token
 
         active_tokens[token] = True
@@ -142,17 +154,15 @@ def ujian():
 # =========================
 @app.route("/heartbeat", methods=["POST"])
 def heartbeat():
-
     if "token" not in session:
         return jsonify({"success": False})
 
     last_seen[session["token"]] = datetime.now()
-
     return jsonify({"success": True})
 
 
 # =========================
-# SUBMIT (ANTI DUPLICATE GLOBAL)
+# SUBMIT FINAL RULE ENGINE
 # =========================
 @app.route("/submit", methods=["POST"])
 def submit():
@@ -163,13 +173,17 @@ def submit():
     email = session["email"]
     token = session["token"]
 
+    # cegah spam submit dalam 1 session
+    if token in submitted_once_session:
+        return jsonify({"success": False, "message": "Sudah submit"})
+
+    submitted_once_session.add(token)
+
     status = user_status.get(email, {"attempt": 0, "passed": False})
 
-# kalau sudah lulus → blok total
+    # ❌ kalau sudah lulus
     if status["passed"]:
-        return jsonify({"success": False, "message": "Anda sudah lulus, tidak bisa mengulang ujian"})
-
-    submitted_keys.add(key)
+        return jsonify({"success": False, "message": "Sudah lulus, tidak bisa mengulang"})
 
     questions = session.get("questions", [])
     answers = request.json.get("answers", [])
@@ -189,9 +203,9 @@ def submit():
 
         q = soal_map[no]
 
-        status = "Benar" if jawaban == q["Jawaban"] else "Salah"
+        status_jawaban = "Benar" if jawaban == q["Jawaban"] else "Salah"
 
-        if status == "Benar":
+        if status_jawaban == "Benar":
             benar += 1
 
         rows.append([
@@ -201,38 +215,38 @@ def submit():
             q["Soal"],
             jawaban,
             q["Jawaban"],
-            status
+            status_jawaban
         ])
 
     sheet_jawaban.append_rows(rows)
 
+    # =========================
+    # NILAI + RULE
+    # =========================
     nilai = round((benar / 30) * 100)
-    lulus = nilai >= 60
+    lulus = nilai >= KKM
 
     status["attempt"] += 1
 
-if lulus:
-    status["passed"] = True
-else:
-    if status["attempt"] >= MAX_ATTEMPT_GAGAL:
-        status["passed"] = False
+    if lulus:
+        status["passed"] = True
 
-user_status[email] = status
+    user_status[email] = status
 
     session.clear()
     active_tokens.pop(token, None)
 
     return jsonify({
-    "success": True,
-    "nilai": nilai,
-    "lulus": lulus,
-    "attempt": status["attempt"],
-    "max_attempt": MAX_ATTEMPT_GAGAL
-})
+        "success": True,
+        "nilai": nilai,
+        "lulus": lulus,
+        "attempt": status["attempt"],
+        "kkm": KKM
+    })
 
 
 # =========================
-# FORCE LOGOUT
+# LOGOUT FORCE
 # =========================
 @app.route("/force_logout", methods=["POST"])
 def force_logout():
@@ -243,7 +257,6 @@ def force_logout():
         active_tokens.pop(token, None)
 
     session.clear()
-
     return jsonify({"success": True})
 
 

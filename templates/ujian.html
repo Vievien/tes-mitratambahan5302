@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="id">
-
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -52,112 +51,68 @@ let token = "{{ token }}";
 let submitted = false;
 let time = 3600;
 
-// ================= TIMER (ANTI CRASH) =================
+// ================= TIMER =================
 setInterval(() => {
 
     let m = Math.floor(time / 60);
     let s = time % 60;
 
-    let el = document.getElementById("timerBox");
-    if(el){
-        el.innerText = String(m).padStart(2,"0")+":"+String(s).padStart(2,"0");
-    }
+    document.getElementById("timerBox").innerText =
+        String(m).padStart(2,"0")+":"+String(s).padStart(2,"0");
 
     if(time <= 0){
-        submit(true);
+        submitUjian();
         return;
     }
 
     time--;
 
 }, 1000);
-let warning = 0;
 
 // ================= FULLSCREEN =================
 function fs(){
-    let el=document.documentElement;
-    el.requestFullscreen?.();
+    document.documentElement.requestFullscreen?.();
 }
 
 document.addEventListener("click", fs, {once:true});
 
-// ================= CHEAT DETECT =================
-function cheat(msg){
-    warning++;
-    if(warning>=3){
-        logout();
-        return;
-    }
-    alert(msg + " ("+warning+"/3)");
-    fs();
-}
-
-// tab switch
-document.addEventListener("visibilitychange",()=>{
-    if(document.hidden) cheat("Tab switch");
-});
-
-window.addEventListener("blur",()=>cheat("Blur"));
-
-// devtools
-setInterval(()=>{
-    if(window.outerWidth-window.innerWidth>160){
-        cheat("DevTools");
-    }
-},1000);
-
-// shortcut
-document.onkeydown=function(e){
-    if(e.key==="F12") cheat("F12");
-    if(e.ctrlKey && e.shiftKey) cheat("Inspect");
-};
-
-// ================= HEARTBEAT =================
-setInterval(()=>{
-    fetch("/heartbeat",{method:"POST"});
-},5000);
-
-// ================= LOGOUT =================
-function logout(){
-    fetch("/force_logout",{method:"POST"})
-    .finally(()=>location.href="/");
-}
-
 // ================= SUBMIT =================
 function submitUjian(){
 
-if(submitted) return;
-submitted=true;
+    if(submitted) return;
+    submitted = true;
 
-document.getElementById("btn").disabled = true;
+    document.getElementById("btn").disabled = true;
 
-let answers=[];
+    let answers = [];
 
-{% for q in questions %}
-let opt{{ q['No'] }}=document.querySelector('input[name="q{{ q["No"] }}"]:checked');
+    {% for q in questions %}
+    let opt{{ q['No'] }} = document.querySelector('input[name="q{{ q["No"] }}"]:checked');
 
-answers.push({
-no:"{{ q['No'] }}",
-jawaban:opt{{ q['No'] }}?opt{{ q['No'] }}.value:""
-});
-{% endfor %}
+    answers.push({
+        no:"{{ q['No'] }}",
+        jawaban: opt{{ q['No'] }} ? opt{{ q['No'] }}.value : ""
+    });
+    {% endfor %}
 
-fetch("/submit",{
-method:"POST",
-headers:{"Content-Type":"application/json"},
-body:JSON.stringify({answers})
-})
-.then(r=>r.json())
-.then(d=>{
-if(d.success){
-document.body.innerHTML=
-"<h1 style='text-align:center;margin-top:100px'>Nilai: "+d.nilai+"</h1>"+
-"<h2 style='text-align:center'>"+(d.lulus?"LULUS":"TIDAK LULUS")+"</h2>";
-}else{
-alert(d.message);
-submitted=false;
-}
-});
+    fetch("/submit",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({answers})
+    })
+    .then(r=>r.json())
+    .then(d=>{
+        if(d.success){
+            document.body.innerHTML =
+            "<h1 style='text-align:center;margin-top:100px'>Nilai: "+d.nilai+"</h1>"+
+            "<h2 style='text-align:center'>"+(d.lulus?"LULUS":"TIDAK LULUS")+"</h2>"+
+            "<p style='text-align:center'>Attempt: "+d.attempt+" / KKM: "+d.kkm+"</p>";
+        } else {
+            alert(d.message);
+            submitted = false;
+            document.getElementById("btn").disabled = false;
+        }
+    });
 
 }
 
