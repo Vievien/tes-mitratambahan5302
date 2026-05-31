@@ -4,15 +4,15 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CBT FINAL STABLE</title>
+<title>CBT PRO MAX</title>
 
 <style>
 body{font-family:Arial;max-width:900px;margin:auto;padding:20px;background:#f5f5f5}
-.header{background:#fff;padding:20px;border-radius:10px;margin-bottom:15px}
+.header{background:#fff;padding:20px;border-radius:10px;margin-bottom:20px}
 #timerBox{position:sticky;top:0;background:#fff3cd;padding:15px;font-size:22px;text-align:center;font-weight:bold}
-.soal{background:#fff;padding:15px;margin-bottom:10px;border-radius:10px}
-.pilihan{display:block;margin-top:5px}
-button{width:100%;padding:15px;font-size:18px;background:#1565c0;color:#fff;border:none;border-radius:10px}
+.soal{background:#fff;padding:15px;margin-bottom:15px;border-radius:10px}
+.pilihan{display:block;margin-top:8px}
+button{width:100%;padding:15px;font-size:18px;border:none;background:#1565c0;color:#fff;border-radius:10px}
 button:disabled{background:gray}
 </style>
 </head>
@@ -20,18 +20,17 @@ button:disabled{background:gray}
 <body>
 
 <div class="header">
-<h2>SELEKSI MITRA TAMBAHAN</h2>
+<h2>CBT PRO MAX</h2>
 <p><b>{{ nama }}</b></p>
 <p>{{ email }}</p>
 </div>
 
-<div id="timerBox">⏰ <span id="timer">60:00</span></div>
+<div id="timerBox">⏰ 60:00</div>
 
 <form>
 
 {% for q in questions %}
 <div class="soal">
-
 <b>{{ loop.index }}. {{ q["Soal"] }}</b>
 
 <label class="pilihan"><input type="radio" name="q{{ q['No'] }}" value="A"> A. {{ q["A"] }}</label>
@@ -43,12 +42,13 @@ button:disabled{background:gray}
 </div>
 {% endfor %}
 
-<button type="button" id="btn" onclick="submit()">SUBMIT</button>
+<button type="button" id="btn" onclick="submitUjian()">SUBMIT</button>
 
 </form>
 
 <script>
 
+let token = "{{ token }}";
 let submitted = false;
 let time = 3600;
 
@@ -58,7 +58,7 @@ setInterval(() => {
     let m = Math.floor(time / 60);
     let s = time % 60;
 
-    let el = document.getElementById("timer");
+    let el = document.getElementById("timerBox");
     if(el){
         el.innerText = String(m).padStart(2,"0")+":"+String(s).padStart(2,"0");
     }
@@ -71,73 +71,93 @@ setInterval(() => {
     time--;
 
 }, 1000);
+let warning = 0;
 
-
-// ================= SAFE COLLECT (NO JINJA JS CRASH) =================
-function collect(){
-
-    let result = [];
-
-    document.querySelectorAll(".soal").forEach((s, i) => {
-
-        let selected = s.querySelector("input[type=radio]:checked");
-
-        result.push({
-            no: i + 1,
-            jawaban: selected ? selected.value : ""
-        });
-
-    });
-
-    return result;
+// ================= FULLSCREEN =================
+function fs(){
+    let el=document.documentElement;
+    el.requestFullscreen?.();
 }
 
+document.addEventListener("click", fs, {once:true});
+
+// ================= CHEAT DETECT =================
+function cheat(msg){
+    warning++;
+    if(warning>=3){
+        logout();
+        return;
+    }
+    alert(msg + " ("+warning+"/3)");
+    fs();
+}
+
+// tab switch
+document.addEventListener("visibilitychange",()=>{
+    if(document.hidden) cheat("Tab switch");
+});
+
+window.addEventListener("blur",()=>cheat("Blur"));
+
+// devtools
+setInterval(()=>{
+    if(window.outerWidth-window.innerWidth>160){
+        cheat("DevTools");
+    }
+},1000);
+
+// shortcut
+document.onkeydown=function(e){
+    if(e.key==="F12") cheat("F12");
+    if(e.ctrlKey && e.shiftKey) cheat("Inspect");
+};
+
+// ================= HEARTBEAT =================
+setInterval(()=>{
+    fetch("/heartbeat",{method:"POST"});
+},5000);
+
+// ================= LOGOUT =================
+function logout(){
+    fetch("/force_logout",{method:"POST"})
+    .finally(()=>location.href="/");
+}
 
 // ================= SUBMIT =================
-function submit(auto=false){
+function submitUjian(){
 
-    if(submitted) return;
-    submitted = true;
+if(submitted) return;
+submitted=true;
 
-    let btn = document.getElementById("btn");
-    btn.disabled = true;
-    btn.innerText = "Mengirim...";
+document.getElementById("btn").disabled = true;
 
-    fetch("/submit", {
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({answers:collect()})
-    })
-    .then(r=>r.json())
-    .then(d=>{
+let answers=[];
 
-        if(d.success){
+{% for q in questions %}
+let opt{{ q['No'] }}=document.querySelector('input[name="q{{ q["No"] }}"]:checked');
 
-            document.body.innerHTML =
-            `<div style="text-align:center;margin-top:100px;font-family:Arial">
-                <h1>Nilai: ${d.nilai}</h1>
-                <h2>${d.lulus ? "LULUS" : "TIDAK LULUS"}</h2>
-            </div>`;
+answers.push({
+no:"{{ q['No'] }}",
+jawaban:opt{{ q['No'] }}?opt{{ q['No'] }}.value:""
+});
+{% endfor %}
 
-        } else {
-
-            alert(d.message || "Gagal submit");
-
-            submitted = false;
-            btn.disabled = false;
-            btn.innerText = "SUBMIT";
-        }
-
-    })
-    .catch(()=>{
-
-        alert("Server error");
-
-        submitted = false;
-        btn.disabled = false;
-        btn.innerText = "SUBMIT";
-
-    });
+fetch("/submit",{
+method:"POST",
+headers:{"Content-Type":"application/json"},
+body:JSON.stringify({answers})
+})
+.then(r=>r.json())
+.then(d=>{
+if(d.success){
+document.body.innerHTML=
+"<h1 style='text-align:center;margin-top:100px'>Nilai: "+d.nilai+"</h1>"+
+"<h2 style='text-align:center'>"+(d.lulus?"LULUS":"TIDAK LULUS")+"</h2>";
+}else{
+alert(d.message);
+submitted=false;
+}
+});
 
 }
 
