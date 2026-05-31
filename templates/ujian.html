@@ -4,137 +4,209 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CBT PRO MAX</title>
+<title>Ujian Online</title>
 
 <style>
-body{font-family:Arial;max-width:900px;margin:auto;padding:20px;background:#f5f5f5}
-.header{background:#fff;padding:20px;border-radius:10px;margin-bottom:20px}
-#timerBox{position:sticky;top:0;background:#fff3cd;padding:15px;font-size:22px;text-align:center;font-weight:bold}
-.soal{background:#fff;padding:15px;margin-bottom:15px;border-radius:10px}
-.pilihan{display:block;margin-top:8px}
-button{width:100%;padding:15px;font-size:18px;border:none;background:#1565c0;color:#fff;border-radius:10px}
-button:disabled{background:gray}
+body{
+    font-family: Arial;
+    max-width: 900px;
+    margin: auto;
+    padding: 20px;
+    background: #f5f5f5;
+}
+
+.header{
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+}
+
+#timerBox{
+    position: sticky;
+    top: 0;
+    background: #fff3cd;
+    padding: 15px;
+    font-size: 22px;
+    font-weight: bold;
+    text-align: center;
+    margin-bottom: 20px;
+    border-radius: 10px;
+}
+
+.soal{
+    background: white;
+    padding: 15px;
+    margin-bottom: 15px;
+    border-radius: 10px;
+}
+
+.pilihan{
+    display:block;
+    margin-top:8px;
+}
+
+button{
+    width:100%;
+    padding:15px;
+    font-size:18px;
+    background:#1565c0;
+    color:white;
+    border:none;
+    border-radius:10px;
+}
+
+button:disabled{
+    background:gray;
+}
 </style>
 </head>
 
 <body>
 
 <div class="header">
-<h2>CBT PRO MAX</h2>
-<p><b>{{ nama }}</b></p>
-<p>{{ email }}</p>
+    <h2>SELEKSI MITRA TAMBAHAN</h2>
+    <p><b>{{ nama }}</b></p>
+    <p>{{ email }}</p>
 </div>
 
-<div id="timerBox">⏰ 60:00</div>
+<div id="timerBox">
+⏰ <span id="timer">60:00</span>
+</div>
 
-<form>
+<form id="formUjian">
 
 {% for q in questions %}
 <div class="soal">
-<b>{{ loop.index }}. {{ q["Soal"] }}</b>
+    <b>{{ loop.index }}. {{ q["Soal"] }}</b>
 
-<label class="pilihan"><input type="radio" name="q{{ q['No'] }}" value="A"> A. {{ q["A"] }}</label>
-<label class="pilihan"><input type="radio" name="q{{ q['No'] }}" value="B"> B. {{ q["B"] }}</label>
-<label class="pilihan"><input type="radio" name="q{{ q['No'] }}" value="C"> C. {{ q["C"] }}</label>
-<label class="pilihan"><input type="radio" name="q{{ q['No'] }}" value="D"> D. {{ q["D"] }}</label>
-<label class="pilihan"><input type="radio" name="q{{ q['No'] }}" value="E"> E. {{ q["E"] }}</label>
+    <label class="pilihan">
+        <input type="radio" name="q{{ q['No'] }}" value="A"> A. {{ q["A"] }}
+    </label>
+
+    <label class="pilihan">
+        <input type="radio" name="q{{ q['No'] }}" value="B"> B. {{ q["B"] }}
+    </label>
+
+    <label class="pilihan">
+        <input type="radio" name="q{{ q['No'] }}" value="C"> C. {{ q["C"] }}
+    </label>
+
+    <label class="pilihan">
+        <input type="radio" name="q{{ q['No'] }}" value="D"> D. {{ q["D"] }}
+    </label>
+
+    <label class="pilihan">
+        <input type="radio" name="q{{ q['No'] }}" value="E"> E. {{ q["E"] }}
+    </label>
 
 </div>
 {% endfor %}
 
-<button type="button" id="btn" onclick="submit()">SUBMIT</button>
+<button type="button" id="submitBtn" onclick="submitJawaban(false)">
+SUBMIT
+</button>
 
 </form>
 
 <script>
 
-let token = "{{ token }}";
 let submitted = false;
-let warning = 0;
+let totalSeconds = 3600;
 
-// ================= FULLSCREEN =================
-function fs(){
-    let el=document.documentElement;
-    el.requestFullscreen?.();
-}
+// ================= TIMER (FIXED) =================
+setInterval(() => {
 
-document.addEventListener("click", fs, {once:true});
-
-// ================= CHEAT DETECT =================
-function cheat(msg){
-    warning++;
-    if(warning>=3){
-        logout();
+    if(totalSeconds <= 0){
+        submitJawaban(true);
         return;
     }
-    alert(msg + " ("+warning+"/3)");
-    fs();
+
+    let m = Math.floor(totalSeconds / 60);
+    let s = totalSeconds % 60;
+
+    document.getElementById("timer").innerText =
+        String(m).padStart(2,"0") + ":" + String(s).padStart(2,"0");
+
+    totalSeconds--;
+
+}, 1000);
+
+
+// ================= COLLECT ANSWERS (SAFE VERSION) =================
+function collectAnswers(){
+
+    let answers = [];
+
+    {% for q in questions %}
+
+    let selected = document.querySelector(
+        'input[name="q{{ q["No"] }}"]:checked'
+    );
+
+    answers.push({
+        no: "{{ q['No'] }}",
+        jawaban: selected ? selected.value : ""
+    });
+
+    {% endfor %}
+
+    return answers;
 }
 
-// tab switch
-document.addEventListener("visibilitychange",()=>{
-    if(document.hidden) cheat("Tab switch");
-});
-
-window.addEventListener("blur",()=>cheat("Blur"));
-
-// devtools
-setInterval(()=>{
-    if(window.outerWidth-window.innerWidth>160){
-        cheat("DevTools");
-    }
-},1000);
-
-// shortcut
-document.onkeydown=function(e){
-    if(e.key==="F12") cheat("F12");
-    if(e.ctrlKey && e.shiftKey) cheat("Inspect");
-};
-
-// ================= HEARTBEAT =================
-setInterval(()=>{
-    fetch("/heartbeat",{method:"POST"});
-},5000);
-
-// ================= LOGOUT =================
-function logout(){
-    fetch("/force_logout",{method:"POST"})
-    .finally(()=>location.href="/");
-}
 
 // ================= SUBMIT =================
-function submit(){
+function submitJawaban(auto=false){
 
-if(submitted) return;
-submitted=true;
+    if(submitted) return;
+    submitted = true;
 
-let answers=[];
+    let btn = document.getElementById("submitBtn");
+    btn.disabled = true;
+    btn.innerText = "Mengirim...";
 
-{% for q in questions %}
-let opt{{ q['No'] }}=document.querySelector('input[name="q{{ q["No"] }}"]:checked');
+    let answers = collectAnswers();
 
-answers.push({
-no:"{{ q['No'] }}",
-jawaban:opt{{ q['No'] }}?opt{{ q['No'] }}.value:""
-});
-{% endfor %}
+    fetch("/submit", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ answers: answers })
+    })
 
-fetch("/submit",{
-method:"POST",
-headers:{"Content-Type":"application/json"},
-body:JSON.stringify({answers})
-})
-.then(r=>r.json())
-.then(d=>{
-if(d.success){
-document.body.innerHTML=
-"<h1 style='text-align:center;margin-top:100px'>Nilai: "+d.nilai+"</h1>"+
-"<h2 style='text-align:center'>"+(d.lulus?"LULUS":"TIDAK LULUS")+"</h2>";
-}else{
-alert(d.message);
-submitted=false;
-}
-});
+    .then(res => res.json())
+    .then(data => {
+
+        if(data.success){
+
+            document.body.innerHTML = `
+                <div style="text-align:center;margin-top:100px;font-family:Arial">
+                    <h1>Terima Kasih 🎉</h1>
+                    <h2>Nilai Anda: ${data.nilai}</h2>
+                    <h3>${data.lulus ? "LULUS" : "TIDAK LULUS"}</h3>
+                </div>
+            `;
+
+        } else {
+
+            alert(data.message || "Submit gagal");
+
+            submitted = false;
+            btn.disabled = false;
+            btn.innerText = "SUBMIT";
+        }
+
+    })
+
+    .catch(() => {
+
+        alert("Terjadi kesalahan server");
+
+        submitted = false;
+        btn.disabled = false;
+        btn.innerText = "SUBMIT";
+    });
 
 }
 
