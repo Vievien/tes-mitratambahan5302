@@ -4,193 +4,124 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Ujian Online</title>
+<title>CBT FINAL STABLE</title>
 
 <style>
-body{
-    font-family: Arial;
-    max-width: 900px;
-    margin: auto;
-    padding: 20px;
-    background: #f5f5f5;
-}
-
-.header{
-    background: white;
-    padding: 20px;
-    border-radius: 10px;
-    margin-bottom: 20px;
-}
-
-#timerBox{
-    position: sticky;
-    top: 0;
-    background: #fff3cd;
-    padding: 15px;
-    font-size: 22px;
-    font-weight: bold;
-    text-align: center;
-    margin-bottom: 20px;
-    border-radius: 10px;
-}
-
-.soal{
-    background: white;
-    padding: 15px;
-    margin-bottom: 15px;
-    border-radius: 10px;
-}
-
-.pilihan{
-    display:block;
-    margin-top:8px;
-}
-
-button{
-    width:100%;
-    padding:15px;
-    font-size:18px;
-    background:#1565c0;
-    color:white;
-    border:none;
-    border-radius:10px;
-}
-
-button:disabled{
-    background:gray;
-}
+body{font-family:Arial;max-width:900px;margin:auto;padding:20px;background:#f5f5f5}
+.header{background:#fff;padding:20px;border-radius:10px;margin-bottom:15px}
+#timerBox{position:sticky;top:0;background:#fff3cd;padding:15px;font-size:22px;text-align:center;font-weight:bold}
+.soal{background:#fff;padding:15px;margin-bottom:10px;border-radius:10px}
+.pilihan{display:block;margin-top:5px}
+button{width:100%;padding:15px;font-size:18px;background:#1565c0;color:#fff;border:none;border-radius:10px}
+button:disabled{background:gray}
 </style>
 </head>
 
 <body>
 
 <div class="header">
-    <h2>SELEKSI MITRA TAMBAHAN</h2>
-    <p><b>{{ nama }}</b></p>
-    <p>{{ email }}</p>
+<h2>SELEKSI MITRA TAMBAHAN</h2>
+<p><b>{{ nama }}</b></p>
+<p>{{ email }}</p>
 </div>
 
-<div id="timerBox">
-⏰ <span id="timer">60:00</span>
-</div>
+<div id="timerBox">⏰ <span id="timer">60:00</span></div>
 
-<form id="formUjian">
+<form>
 
 {% for q in questions %}
 <div class="soal">
-    <b>{{ loop.index }}. {{ q["Soal"] }}</b>
 
-    <label class="pilihan">
-        <input type="radio" name="q{{ q['No'] }}" value="A"> A. {{ q["A"] }}
-    </label>
+<b>{{ loop.index }}. {{ q["Soal"] }}</b>
 
-    <label class="pilihan">
-        <input type="radio" name="q{{ q['No'] }}" value="B"> B. {{ q["B"] }}
-    </label>
-
-    <label class="pilihan">
-        <input type="radio" name="q{{ q['No'] }}" value="C"> C. {{ q["C"] }}
-    </label>
-
-    <label class="pilihan">
-        <input type="radio" name="q{{ q['No'] }}" value="D"> D. {{ q["D"] }}
-    </label>
-
-    <label class="pilihan">
-        <input type="radio" name="q{{ q['No'] }}" value="E"> E. {{ q["E"] }}
-    </label>
+<label class="pilihan"><input type="radio" name="q{{ q['No'] }}" value="A"> A. {{ q["A"] }}</label>
+<label class="pilihan"><input type="radio" name="q{{ q['No'] }}" value="B"> B. {{ q["B"] }}</label>
+<label class="pilihan"><input type="radio" name="q{{ q['No'] }}" value="C"> C. {{ q["C"] }}</label>
+<label class="pilihan"><input type="radio" name="q{{ q['No'] }}" value="D"> D. {{ q["D"] }}</label>
+<label class="pilihan"><input type="radio" name="q{{ q['No'] }}" value="E"> E. {{ q["E"] }}</label>
 
 </div>
 {% endfor %}
 
-<button type="button" id="submitBtn" onclick="submitJawaban(false)">
-SUBMIT
-</button>
+<button type="button" id="btn" onclick="submit()">SUBMIT</button>
 
 </form>
 
 <script>
 
 let submitted = false;
-let totalSeconds = 3600;
+let time = 3600;
 
-// ================= TIMER (FIXED) =================
+// ================= TIMER (ANTI CRASH) =================
 setInterval(() => {
 
-    if(totalSeconds <= 0){
-        submitJawaban(true);
+    let m = Math.floor(time / 60);
+    let s = time % 60;
+
+    let el = document.getElementById("timer");
+    if(el){
+        el.innerText = String(m).padStart(2,"0")+":"+String(s).padStart(2,"0");
+    }
+
+    if(time <= 0){
+        submit(true);
         return;
     }
 
-    let m = Math.floor(totalSeconds / 60);
-    let s = totalSeconds % 60;
-
-    document.getElementById("timer").innerText =
-        String(m).padStart(2,"0") + ":" + String(s).padStart(2,"0");
-
-    totalSeconds--;
+    time--;
 
 }, 1000);
 
 
-// ================= COLLECT ANSWERS (SAFE VERSION) =================
-function collectAnswers(){
+// ================= SAFE COLLECT (NO JINJA JS CRASH) =================
+function collect(){
 
-    let answers = [];
+    let result = [];
 
-    {% for q in questions %}
+    document.querySelectorAll(".soal").forEach((s, i) => {
 
-    let selected = document.querySelector(
-        'input[name="q{{ q["No"] }}"]:checked'
-    );
+        let selected = s.querySelector("input[type=radio]:checked");
 
-    answers.push({
-        no: "{{ q['No'] }}",
-        jawaban: selected ? selected.value : ""
+        result.push({
+            no: i + 1,
+            jawaban: selected ? selected.value : ""
+        });
+
     });
 
-    {% endfor %}
-
-    return answers;
+    return result;
 }
 
 
 // ================= SUBMIT =================
-function submitJawaban(auto=false){
+function submit(auto=false){
 
     if(submitted) return;
     submitted = true;
 
-    let btn = document.getElementById("submitBtn");
+    let btn = document.getElementById("btn");
     btn.disabled = true;
     btn.innerText = "Mengirim...";
 
-    let answers = collectAnswers();
-
     fetch("/submit", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ answers: answers })
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({answers:collect()})
     })
+    .then(r=>r.json())
+    .then(d=>{
 
-    .then(res => res.json())
-    .then(data => {
+        if(d.success){
 
-        if(data.success){
-
-            document.body.innerHTML = `
-                <div style="text-align:center;margin-top:100px;font-family:Arial">
-                    <h1>Terima Kasih 🎉</h1>
-                    <h2>Nilai Anda: ${data.nilai}</h2>
-                    <h3>${data.lulus ? "LULUS" : "TIDAK LULUS"}</h3>
-                </div>
-            `;
+            document.body.innerHTML =
+            `<div style="text-align:center;margin-top:100px;font-family:Arial">
+                <h1>Nilai: ${d.nilai}</h1>
+                <h2>${d.lulus ? "LULUS" : "TIDAK LULUS"}</h2>
+            </div>`;
 
         } else {
 
-            alert(data.message || "Submit gagal");
+            alert(d.message || "Gagal submit");
 
             submitted = false;
             btn.disabled = false;
@@ -198,14 +129,14 @@ function submitJawaban(auto=false){
         }
 
     })
+    .catch(()=>{
 
-    .catch(() => {
-
-        alert("Terjadi kesalahan server");
+        alert("Server error");
 
         submitted = false;
         btn.disabled = false;
         btn.innerText = "SUBMIT";
+
     });
 
 }
