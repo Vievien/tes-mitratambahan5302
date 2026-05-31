@@ -1,267 +1,268 @@
 <!DOCTYPE html>
-<html>
+<html lang="id">
 
 <head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <title>Seleksi Akhir Mitra Tambahan</title>
+<title>Ujian Online</title>
 
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
 
-  <style>
+body{
+    font-family: Arial, sans-serif;
+    max-width: 900px;
+    margin: auto;
+    padding: 20px;
+    background: #f5f5f5;
+}
 
-    *{
-      margin:0;
-      padding:0;
-      box-sizing:border-box;
-    }
+.header{
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+}
 
-    body{
-      font-family:Arial,sans-serif;
-      background:#f1f5f9;
-      overflow:hidden;
-    }
+#timerBox{
+    position: sticky;
+    top: 0;
+    z-index: 999;
+    background: #fff3cd;
+    color: #856404;
+    text-align: center;
+    padding: 15px;
+    font-size: 24px;
+    font-weight: bold;
+    border-radius: 10px;
+    margin-bottom: 20px;
+}
 
-    .topbar{
+.soal{
+    background: white;
+    border-radius: 10px;
+    padding: 15px;
+    margin-bottom: 20px;
+}
 
-      width:100%;
-      height:70px;
+.pilihan{
+    display: block;
+    margin-top: 10px;
+    cursor: pointer;
+}
 
-      background:#1565c0;
+.submit-btn{
+    width: 100%;
+    padding: 15px;
+    border: none;
+    border-radius: 10px;
+    background: #1565c0;
+    color: white;
+    font-size: 18px;
+    cursor: pointer;
+}
 
-      color:white;
+.submit-btn:hover{
+    background: #0d47a1;
+}
 
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-
-      padding:0 25px;
-
-      box-shadow:0 2px 10px rgba(0,0,0,.2);
-
-    }
-
-    .left-section{
-      display:flex;
-      flex-direction:column;
-    }
-
-    .judul{
-      font-size:22px;
-      font-weight:bold;
-    }
-
-    .user{
-      font-size:14px;
-      margin-top:4px;
-      opacity:.9;
-    }
-
-    .logout{
-
-      background:white;
-      color:#1565c0;
-
-      text-decoration:none;
-
-      padding:10px 18px;
-
-      border-radius:8px;
-
-      font-weight:bold;
-
-    }
-
-    .iframe-container{
-
-      width:100%;
-      height:calc(100vh - 70px);
-
-      background:white;
-
-    }
-
-    iframe{
-
-      width:100%;
-      height:100%;
-
-      border:none;
-
-    }
-
-    @media(max-width:768px){
-
-      .topbar{
-
-        flex-direction:column;
-
-        justify-content:center;
-
-        align-items:flex-start;
-
-        height:auto;
-
-        padding:15px;
-
-        gap:10px;
-
-      }
-
-      .iframe-container{
-        height:calc(100vh - 120px);
-      }
-
-      .judul{
-        font-size:18px;
-      }
-
-    }
-
-  </style>
-
+</style>
 </head>
 
 <body>
 
-<div class="topbar">
+<div class="header">
 
-  <div class="left-section">
+<h2>SELEKSI MITRA TAMBAHAN</h2>
 
-    <div class="judul">
-      Seleksi Akhir Mitra Tambahan
-    </div>
+<p><b>{{ nama }}</b></p>
 
-    <div class="user">
-      Login sebagai: {{username}}
-    </div>
-
-  </div>
-
-  <a href="/logout" class="logout">
-    Logout
-  </a>
+<p>{{ email }}</p>
 
 </div>
 
-<div class="iframe-container">
+<div id="timerBox">
+⏰ Sisa Waktu:
+<span id="timer">60:00</span>
+</div>
 
-  <iframe
-      src="{{link_ujian}}"
-      allow="geolocation"
-      loading="lazy">
-  </iframe>
+<form id="formUjian">
+
+{% for q in questions %}
+
+<div class="soal">
+
+<p>
+<b>
+{{ loop.index }}.
+{{ q["Soal"] }}
+</b>
+</p>
+
+<label class="pilihan">
+<input type="radio" name="q{{ q['No'] }}" value="A">
+A. {{ q["A"] }}
+</label>
+
+<label class="pilihan">
+<input type="radio" name="q{{ q['No'] }}" value="B">
+B. {{ q["B"] }}
+</label>
+
+<label class="pilihan">
+<input type="radio" name="q{{ q['No'] }}" value="C">
+C. {{ q["C"] }}
+</label>
+
+<label class="pilihan">
+<input type="radio" name="q{{ q['No'] }}" value="D">
+D. {{ q["D"] }}
+</label>
+
+<label class="pilihan">
+<input type="radio" name="q{{ q['No'] }}" value="E">
+E. {{ q["E"] }}
+</label>
 
 </div>
+
+{% endfor %}
+
+<button
+type="button"
+class="submit-btn"
+onclick="submitJawaban()">
+
+Submit Jawaban
+
+</button>
+
+</form>
 
 <script>
 
-let sudahLogout = false;
+let totalSeconds = 3600;
 
-function paksaLogout(pesan){
+let timerInterval;
 
-  if(sudahLogout) return;
+function startTimer(){
 
-  sudahLogout = true;
+    timerInterval = setInterval(function(){
 
-  alert(pesan);
+        let menit = Math.floor(totalSeconds / 60);
+        let detik = totalSeconds % 60;
 
-  window.location.replace("/logout");
+        document.getElementById("timer").innerText =
+            String(menit).padStart(2,"0")
+            + ":"
+            +
+            String(detik).padStart(2,"0");
+
+        totalSeconds--;
+
+        if(totalSeconds < 0){
+
+            clearInterval(timerInterval);
+
+            alert("Waktu habis. Jawaban akan dikirim otomatis.");
+
+            submitJawaban(true);
+        }
+
+    },1000);
 
 }
 
-/* ==================================================
-   ANDROID + IPHONE
-   Jika browser masuk background
-================================================== */
+startTimer();
 
-document.addEventListener("visibilitychange", function(){
+function submitJawaban(autoSubmit=false){
 
-  if(document.hidden){
+    let answers = [];
 
-    paksaLogout(
-      "Perpindahan aplikasi/tab terdeteksi. Anda otomatis keluar dari ujian."
-    );
+    {% for q in questions %}
 
-  }
+    let pilihan_{{ q['No'] }} =
+        document.querySelector(
+            'input[name="q{{ q["No"] }}"]:checked'
+        );
 
-});
+    if(!autoSubmit && !pilihan_{{ q['No'] }}){
 
-/* ==================================================
-   IOS SAFARI
-================================================== */
+        alert(
+            "Soal nomor {{ loop.index }} belum dijawab."
+        );
 
-window.addEventListener("pagehide", function(){
+        return;
+    }
 
-  paksaLogout(
-    "Anda meninggalkan halaman ujian."
-  );
+    answers.push({
 
-});
+        no: "{{ q['No'] }}",
 
-/* ==================================================
-   ANDROID
-================================================== */
+        jawaban:
+            pilihan_{{ q['No'] }}
+            ? pilihan_{{ q['No'] }}.value
+            : ""
 
-window.addEventListener("blur", function(){
+    });
 
-  paksaLogout(
-    "Perpindahan aplikasi terdeteksi."
-  );
+    {% endfor %}
 
-});
+    fetch("/submit", {
 
-/* ==================================================
-   BLOK KLIK KANAN
-================================================== */
+        method: "POST",
 
-document.addEventListener("contextmenu", function(e){
+        headers: {
+            "Content-Type": "application/json"
+        },
 
-  e.preventDefault();
+        body: JSON.stringify({
+            answers: answers
+        })
 
-});
+    })
 
-/* ==================================================
-   BLOK COPY
-================================================== */
+    .then(response => response.json())
 
-document.addEventListener("copy", function(e){
+    .then(data => {
 
-  e.preventDefault();
+        if(data.success){
 
-});
+            document.body.innerHTML = `
 
-/* ==================================================
-   BLOK CUT
-================================================== */
+                <div style="
+                    max-width:600px;
+                    margin:auto;
+                    margin-top:50px;
+                    text-align:center;
+                ">
 
-document.addEventListener("cut", function(e){
+                <h1>Terima Kasih 🎉</h1>
 
-  e.preventDefault();
+                <h2>Nilai Anda: ${data.nilai}</h2>
 
-});
+                <h3>
+                    ${data.lulus ? "LULUS" : "TIDAK LULUS"}
+                </h3>
 
-/* ==================================================
-   BLOK PASTE
-================================================== */
+                </div>
 
-document.addEventListener("paste", function(e){
+            `;
+        }
 
-  e.preventDefault();
+    })
 
-});
+    .catch(error => {
 
-/* ==================================================
-   BLOK SELECT TEXT
-================================================== */
+        console.error(error);
 
-document.addEventListener("selectstart", function(e){
+        alert("Terjadi kesalahan saat mengirim jawaban.");
 
-  e.preventDefault();
+    });
 
-});
+}
 
 </script>
 
 </body>
-
 </html>
