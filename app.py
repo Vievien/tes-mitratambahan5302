@@ -30,18 +30,41 @@ spreadsheet = gc.open_by_key("1UaKV5QPMtk_YW_5aRWzoyy5s2w8Xq0Hf43L5iw88Dd0")
 sheet_peserta = spreadsheet.worksheet("Peserta")
 sheet_soal = spreadsheet.worksheet("Soal")
 sheet_jawaban = spreadsheet.worksheet("Jawaban")
+sheet_status = spreadsheet.worksheet("StatusUser")
 
 # =========================
-# MEMORY CONTROL
+# MEMORY
 # =========================
 active_tokens = {}
-last_seen = {}
+submitted_once = set()
 
-user_status = {}
-# email:
-# { "attempt": 0, "passed": False }
+# =========================
+# STATUS SHEET
+# =========================
+def get_status(email):
+    data = sheet_status.get_all_records()
+    for r in data:
+        if str(r["Email"]).strip().lower() == email.strip().lower():
+            return {
+                "attempt": int(r["Attempt"]),
+                "passed": str(r["Passed"]).upper() == "TRUE",
+                "device": str(r.get("DeviceID", ""))
+            }
+    return {"attempt": 0, "passed": False, "device": ""}
 
-submitted_once_session = set()
+
+def save_status(email, attempt, passed, device_id):
+    data = sheet_status.get_all_records()
+
+    for i, r in enumerate(data):
+        if str(r["Email"]).strip().lower() == email.strip().lower():
+            sheet_status.update_cell(i+2, 2, attempt)
+            sheet_status.update_cell(i+2, 3, str(passed))
+            sheet_status.update_cell(i+2, 4, device_id)
+            return
+
+    sheet_status.append_row([email, attempt, passed, device_id])
+
 
 # =========================
 # HELPERS
@@ -78,6 +101,7 @@ def get_random_questions():
     random.shuffle(unique)
     return unique[:30]
 
+
 # =========================
 # LOGIN
 # =========================
@@ -98,25 +122,29 @@ def login():
             return render_template("login.html", error="Akun tidak aktif")
 
         email = peserta["Email"]
+        status = get_status(email)
 
-        status = user_status.get(email, {"attempt": 0, "passed": False})
+        ua = request.headers.get("User-Agent", "")
+        device_id = hashlib.sha256(ua.encode()).hexdigest()
 
-        # ❌ sudah lulus
+        # ❌ lulus
         if status["passed"]:
-            return render_template("login.html", error="Anda sudah lulus dan tidak bisa mengulang ujian")
+            return render_template("login.html", error="Sudah lulus, tidak bisa login lagi")
 
-        # ❌ sudah 2x gagal
+        # ❌ gagal max
         if status["attempt"] >= MAX_ATTEMPT_GAGAL:
             return render_template("login.html", error="Kesempatan ujian sudah habis")
 
-        ua = request.headers.get("User-Agent", "")
-        token = generate_token(email, ua)
+        # 🔐 anti 2 device
+        if status["device"] and status["device"] != device_id:
+            return render_template("login.html", error="Akun sudah digunakan di device lain")
 
         session["nama"] = peserta["Nama"]
         session["email"] = email
-        session["token"] = token
+        session["token"] = generate_token(email, ua)
+        session["device_id"] = device_id
 
-        active_tokens[token] = True
+        active_tokens[session["token"]] = True
 
         return redirect("/ujian")
 
@@ -150,19 +178,7 @@ def ujian():
 
 
 # =========================
-# HEARTBEAT
-# =========================
-@app.route("/heartbeat", methods=["POST"])
-def heartbeat():
-    if "token" not in session:
-        return jsonify({"success": False})
-
-    last_seen[session["token"]] = datetime.now()
-    return jsonify({"success": True})
-
-
-# =========================
-# SUBMIT FINAL RULE ENGINE
+# SUBMIT
 # =========================
 @app.route("/submit", methods=["POST"])
 def submit():
@@ -172,26 +188,25 @@ def submit():
 
     email = session["email"]
     token = session["token"]
+    device_id = session["device_id"]
 
-    # cegah spam submit dalam 1 session
-    if token in submitted_once_session:
+    if token in submitted_once:
         return jsonify({"success": False, "message": "Sudah submit"})
 
-    submitted_once_session.add(token)
+    submitted_once.add(token)
 
-    status = user_status.get(email, {"attempt": 0, "passed": False})
+    status = get_status(email)
 
-    # ❌ kalau sudah lulus
     if status["passed"]:
-        return jsonify({"success": False, "message": "Sudah lulus, tidak bisa mengulang"})
+        return jsonify({"success": False, "message": "Sudah lulus"})
 
     questions = session.get("questions", [])
     answers = request.json.get("answers", [])
 
     soal_map = {str(q["No"]): q for q in questions}
 
-    rows = []
     benar = 0
+    rows = []
 
     for a in answers:
 
@@ -203,9 +218,9 @@ def submit():
 
         q = soal_map[no]
 
-        status_jawaban = "Benar" if jawaban == q["Jawaban"] else "Salah"
+        ok = jawaban == q["Jawaban"]
 
-        if status_jawaban == "Benar":
+        if ok:
             benar += 1
 
         rows.append([
@@ -215,14 +230,11 @@ def submit():
             q["Soal"],
             jawaban,
             q["Jawaban"],
-            status_jawaban
+            "Benar" if ok else "Salah"
         ])
 
     sheet_jawaban.append_rows(rows)
 
-    # =========================
-    # NILAI + RULE
-    # =========================
     nilai = round((benar / 30) * 100)
     lulus = nilai >= KKM
 
@@ -231,7 +243,7 @@ def submit():
     if lulus:
         status["passed"] = True
 
-    user_status[email] = status
+    save_status(email, status["attempt"], status["passed"], device_id)
 
     session.clear()
     active_tokens.pop(token, None)
@@ -246,16 +258,13 @@ def submit():
 
 
 # =========================
-# LOGOUT FORCE
+# LOGOUT
 # =========================
 @app.route("/force_logout", methods=["POST"])
 def force_logout():
-
     token = session.get("token")
-
     if token:
         active_tokens.pop(token, None)
-
     session.clear()
     return jsonify({"success": True})
 

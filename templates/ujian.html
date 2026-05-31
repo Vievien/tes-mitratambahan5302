@@ -47,13 +47,11 @@ button:disabled{background:gray}
 
 <script>
 
-let token = "{{ token }}";
 let submitted = false;
 let time = 3600;
 
-// ================= TIMER =================
+// TIMER
 setInterval(() => {
-
     let m = Math.floor(time / 60);
     let s = time % 60;
 
@@ -64,19 +62,15 @@ setInterval(() => {
         submitUjian();
         return;
     }
-
     time--;
-
 }, 1000);
 
-// ================= FULLSCREEN =================
-function fs(){
+// FULLSCREEN
+document.addEventListener("click", () => {
     document.documentElement.requestFullscreen?.();
-}
+}, {once:true});
 
-document.addEventListener("click", fs, {once:true});
-
-// ================= SUBMIT =================
+// SUBMIT
 function submitUjian(){
 
     if(submitted) return;
