@@ -16,14 +16,10 @@
     }
 
     body{
-      font-family:Arial, sans-serif;
+      font-family:Arial,sans-serif;
       background:#f1f5f9;
       overflow:hidden;
     }
-
-    /* =========================
-       TOPBAR
-    ========================= */
 
     .topbar{
 
@@ -40,7 +36,7 @@
 
       padding:0 25px;
 
-      box-shadow:0 2px 10px rgba(0,0,0,0.2);
+      box-shadow:0 2px 10px rgba(0,0,0,.2);
 
     }
 
@@ -57,13 +53,12 @@
     .user{
       font-size:14px;
       margin-top:4px;
-      opacity:0.9;
+      opacity:.9;
     }
 
     .logout{
 
       background:white;
-
       color:#1565c0;
 
       text-decoration:none;
@@ -74,17 +69,7 @@
 
       font-weight:bold;
 
-      transition:0.3s;
-
     }
-
-    .logout:hover{
-      background:#e3f2fd;
-    }
-
-    /* =========================
-       IFRAME
-    ========================= */
 
     .iframe-container{
 
@@ -102,13 +87,7 @@
 
       border:none;
 
-      background:white;
-
     }
-
-    /* =========================
-       MOBILE
-    ========================= */
 
     @media(max-width:768px){
 
@@ -124,7 +103,7 @@
 
         padding:15px;
 
-        gap:12px;
+        gap:10px;
 
       }
 
@@ -144,43 +123,144 @@
 
 <body>
 
-  <!-- =========================
-       HEADER
-  ========================== -->
+<div class="topbar">
 
-  <div class="topbar">
+  <div class="left-section">
 
-    <div class="left-section">
-
-      <div class="judul">
-        Seleksi Akhir Mitra Tambahan
-      </div>
-
-      <div class="user">
-        Login sebagai: {{username}}
-      </div>
-
+    <div class="judul">
+      Seleksi Akhir Mitra Tambahan
     </div>
 
-    <a href="/logout" class="logout">
-      Logout
-    </a>
+    <div class="user">
+      Login sebagai: {{username}}
+    </div>
 
   </div>
 
-  <!-- =========================
-       IFRAME UJIAN
-  ========================== -->
+  <a href="/logout" class="logout">
+    Logout
+  </a>
 
-  <div class="iframe-container">
+</div>
 
-    <iframe
+<div class="iframe-container">
+
+  <iframe
       src="{{link_ujian}}"
       allow="geolocation"
       loading="lazy">
-    </iframe>
+  </iframe>
 
-  </div>
+</div>
+
+<script>
+
+let sudahLogout = false;
+
+function paksaLogout(pesan){
+
+  if(sudahLogout) return;
+
+  sudahLogout = true;
+
+  alert(pesan);
+
+  window.location.replace("/logout");
+
+}
+
+/* ==================================================
+   ANDROID + IPHONE
+   Jika browser masuk background
+================================================== */
+
+document.addEventListener("visibilitychange", function(){
+
+  if(document.hidden){
+
+    paksaLogout(
+      "Perpindahan aplikasi/tab terdeteksi. Anda otomatis keluar dari ujian."
+    );
+
+  }
+
+});
+
+/* ==================================================
+   IOS SAFARI
+================================================== */
+
+window.addEventListener("pagehide", function(){
+
+  paksaLogout(
+    "Anda meninggalkan halaman ujian."
+  );
+
+});
+
+/* ==================================================
+   ANDROID
+================================================== */
+
+window.addEventListener("blur", function(){
+
+  paksaLogout(
+    "Perpindahan aplikasi terdeteksi."
+  );
+
+});
+
+/* ==================================================
+   BLOK KLIK KANAN
+================================================== */
+
+document.addEventListener("contextmenu", function(e){
+
+  e.preventDefault();
+
+});
+
+/* ==================================================
+   BLOK COPY
+================================================== */
+
+document.addEventListener("copy", function(e){
+
+  e.preventDefault();
+
+});
+
+/* ==================================================
+   BLOK CUT
+================================================== */
+
+document.addEventListener("cut", function(e){
+
+  e.preventDefault();
+
+});
+
+/* ==================================================
+   BLOK PASTE
+================================================== */
+
+document.addEventListener("paste", function(e){
+
+  e.preventDefault();
+
+});
+
+/* ==================================================
+   BLOK SELECT TEXT
+================================================== */
+
+document.addEventListener("selectstart", function(e){
+
+  e.preventDefault();
+
+});
+
+</script>
 
 </body>
 
